@@ -10,6 +10,28 @@ A tool to convert ChatGPT backup files (in JSON format) to Markdown files for ea
 - Handles different message types (text, code, execution output)
 - Copies DALL-E image files to the output directory
 
+## Installation
+
+### Option 1: Clone and use directly
+
+```bash
+git clone https://github.com/yourusername/chatgpt_to_markdown.git
+cd chatgpt_to_markdown
+python chatgpt_to_markdown.py /path/to/openai-export-dir
+```
+
+### Option 2: Install with pip
+
+```bash
+# Install from the cloned repository
+git clone https://github.com/yourusername/chatgpt_to_markdown.git
+cd chatgpt_to_markdown
+pip install .
+
+# Now you can use it from anywhere
+chatgpt_to_markdown /path/to/openai-export-dir
+```
+
 ## Usage
 
 ```bash
@@ -57,6 +79,10 @@ print("Hello, world!")
 Hello, world!
 ```
 ```
+
+## Background
+
+This tool was created to make ChatGPT conversation exports more accessible and easier to browse. The OpenAI export format can be difficult to navigate with its nested JSON structure, so this tool flattens each conversation into a readable Markdown file.
 
 ## Requirements
 
