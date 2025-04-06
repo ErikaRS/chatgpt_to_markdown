@@ -1,4 +1,4 @@
-# Exclude output directories
+# Output directories
 tmp_md_*/
 
 # Python
