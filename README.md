@@ -1,5 +1,8 @@
 # ChatGPT to Markdown Converter
 
+Don't particularly trust anything in this file. I didn't proofread what Claude
+wrote. 
+
 A tool to convert ChatGPT backup files (in JSON format) to Markdown files for easier reading and sharing.
 
 ## Features
