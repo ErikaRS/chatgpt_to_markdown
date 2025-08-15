@@ -15,8 +15,16 @@ def clean_title(title):
 
 def format_time(timestamp):
     """Format a unix timestamp into a human-readable date."""
-    dt = datetime.fromtimestamp(timestamp)
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
+    # Handle timestamps that might be in milliseconds
+    if timestamp > 1e12:  # If timestamp is too large, it's likely in milliseconds
+        timestamp = timestamp / 1000
+    
+    try:
+        dt = datetime.fromtimestamp(timestamp)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, OSError) as e:
+        # If timestamp is still invalid, return a fallback
+        return f"[Invalid timestamp: {timestamp}]"
 
 def message_to_markdown(message, include_timestamps=True):
     """Convert a message to markdown format."""
