@@ -1,0 +1,228 @@
+diff --git a/package-lock.json b/package-lock.json
+index 239da47..056b94b 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1100,9 +1100,6 @@
+ 				"arm"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"glibc"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1117,9 +1114,6 @@
+ 				"arm"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"musl"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1134,9 +1128,6 @@
+ 				"arm64"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"glibc"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1151,9 +1142,6 @@
+ 				"arm64"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"musl"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1168,9 +1156,6 @@
+ 				"loong64"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"glibc"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1185,9 +1170,6 @@
+ 				"loong64"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"musl"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1202,9 +1184,6 @@
+ 				"ppc64"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"glibc"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1219,9 +1198,6 @@
+ 				"ppc64"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"musl"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1236,9 +1212,6 @@
+ 				"riscv64"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"glibc"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1253,9 +1226,6 @@
+ 				"riscv64"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"musl"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1270,9 +1240,6 @@
+ 				"s390x"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"glibc"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1287,9 +1254,6 @@
+ 				"x64"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"glibc"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+@@ -1304,9 +1268,6 @@
+ 				"x64"
+ 			],
+ 			"dev": true,
+-			"libc": [
+-				"musl"
+-			],
+ 			"license": "MIT",
+ 			"optional": true,
+ 			"os": [
+diff --git a/src/ui/columns/tests/columns.tests.ts b/src/ui/columns/tests/columns.tests.ts
+index f351c92..f7b77b5 100644
+--- a/src/ui/columns/tests/columns.tests.ts
++++ b/src/ui/columns/tests/columns.tests.ts
+@@ -1,8 +1,68 @@
+ import { describe, expect, it } from "vitest";
+ import { get } from "svelte/store";
+-import { createCollapsedColumnsStore, resolveDefaultColumnName } from "../columns";
++import { createCollapsedColumnsStore, createColumnStores, resolveDefaultColumnName } from "../columns";
+ import { createSettingsStore, defaultSettings } from "../../settings/settings_store";
+ 
++describe("createColumnStores", () => {
++	it("maps custom columns to their kebab-cased keys", () => {
++		const settingsStore = createSettingsStore();
++		settingsStore.set({ ...defaultSettings, columns: ["Backlog", "Working", "Review"] });
++		const { columnTagTable } = createColumnStores(settingsStore);
++
++		const table = get(columnTagTable);
++		expect(table["backlog"]).toBe("Backlog");
++		expect(table["working"]).toBe("Working");
++		expect(table["review"]).toBe("Review");
++	});
++
++	it("includes 'done' in columnTagTable when 'Done' is in columns (for task tag matching)", () => {
++		const settingsStore = createSettingsStore();
++		settingsStore.set({ ...defaultSettings, columns: ["Backlog", "Working", "Review", "Done"] });
++		const { columnTagTable } = createColumnStores(settingsStore);
++
++		// "done" must be in the table so tasks tagged #done are recognised as column-assigned
++		const table = get(columnTagTable);
++		expect(table["done"]).toBe("Done");
++		expect(Object.keys(table)).toContain("done");
++	});
++
++	it("handles column specs with hex color codes", () => {
++		const settingsStore = createSettingsStore();
++		settingsStore.set({ ...defaultSettings, columns: ["Todo(#FF0000)", "Done(0x00FF00)"] });
++		const { columnTagTable, columnColourTable } = createColumnStores(settingsStore);
++
++		const table = get(columnTagTable);
++		expect(table["todo"]).toBe("Todo");
++		expect(table["done"]).toBe("Done");
++
++		const colours = get(columnColourTable);
++		expect(colours["todo"]).toBe("#FF0000");
++		expect(colours["done"]).toBe("#00FF00");
++	});
++
++	it("returns empty tables when columns is empty", () => {
++		const settingsStore = createSettingsStore();
++		settingsStore.set({ ...defaultSettings, columns: [] });
++		const { columnTagTable } = createColumnStores(settingsStore);
++
++		expect(Object.keys(get(columnTagTable))).toHaveLength(0);
++	});
++
++	it("updates reactively when column settings change", () => {
++		const settingsStore = createSettingsStore();
++		settingsStore.set({ ...defaultSettings, columns: ["Todo"] });
++		const { columnTagTable } = createColumnStores(settingsStore);
++
++		expect(get(columnTagTable)["todo"]).toBe("Todo");
++
++		settingsStore.set({ ...defaultSettings, columns: ["Backlog", "Working"] });
++		const updated = get(columnTagTable);
++		expect(updated["todo"]).toBeUndefined();
++		expect(updated["backlog"]).toBe("Backlog");
++		expect(updated["working"]).toBe("Working");
++	});
++});
++
+ describe("resolveDefaultColumnName", () => {
+ 	it("returns default 'Uncategorized' when no custom name is set", () => {
+ 		expect(resolveDefaultColumnName("uncategorised", undefined, undefined)).toBe("Uncategorized");
+diff --git a/src/ui/main.svelte b/src/ui/main.svelte
+index 16d1b00..f936894 100644
+--- a/src/ui/main.svelte
++++ b/src/ui/main.svelte
+@@ -288,8 +288,13 @@
+ 		return output;
+ 	}
+ 
+-	let columns: ("uncategorised" | ColumnTag)[];
+-	$: columns = Object.keys($columnTagTableStore) as ColumnTag[];
++	let columns: ColumnTag[];
++	// Filter out default column names ("done", "uncategorised") from custom columns since
++	// they are handled separately in orderedColumns via showDoneColumn and showUncategorizedColumn.
++	// Including them here would cause duplicate column entries when users name a column "Done".
++	$: columns = (Object.keys($columnTagTableStore) as ColumnTag[]).filter(
++		(c) => c !== "done" && c !== "uncategorised"
++	);
+ 
+ 	let filterText = "";
+ 	let fileFilter = "";

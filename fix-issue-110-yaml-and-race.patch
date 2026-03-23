@@ -1,0 +1,92 @@
+diff --git a/src/ui/tasks/store.ts b/src/ui/tasks/store.ts
+index 911eb25..035ae4f 100644
+--- a/src/ui/tasks/store.ts
++++ b/src/ui/tasks/store.ts
+@@ -33,6 +33,10 @@ export function createTasksStore(
+ } {
+ 	const tasksStore = writable<Task[]>([]);
+ 	let timer: number | undefined;
++	// Incremented each time initialise() is called so that in-flight processFile()
++	// callbacks from a superseded initialise() are discarded rather than overwriting
++	// results from the most recent one.
++	let currentGeneration = 0;
+ 
+ 	const tasksByTaskId = new Map<string, Task>();
+ 	const metadataByTaskId = new Map<string, Metadata>();
+@@ -40,10 +44,12 @@ export function createTasksStore(
+ 
+ 	const fileHandles = vault.getMarkdownFiles();
+ 
+-	function debounceSetTasks() {
++	function debounceSetTasks(generation: number) {
++		if (generation !== currentGeneration) return;
+ 		if (!timer) {
+ 			timer = window.setTimeout(() => {
+ 				timer = undefined;
++				if (generation !== currentGeneration) return;
+ 				tasksStore.set(
+ 					[...tasksByTaskId.values()].sort((a, b) => {
+ 						if (a.path !== b.path) {
+@@ -60,7 +66,7 @@ export function createTasksStore(
+ 		return shouldIncludeFilePath(file.path, getFilenameFilter(), getExcludeFilter(), getBoardFolderPath());
+ 	}
+ 
+-	function processFile(fileHandle: TFile) {
++	function processFile(fileHandle: TFile, generation: number) {
+ 		updateMapsFromFile({
+ 			fileHandle,
+ 			tasksByTaskId,
+@@ -70,11 +76,12 @@ export function createTasksStore(
+ 			columnTagTableStore,
+ 			...getMarkerSettings(get(settingsStore)),
+ 		}).then(() => {
+-			debounceSetTasks();
++			debounceSetTasks(generation);
+ 		});
+ 	}
+ 
+ 	function initialise() {
++		const generation = ++currentGeneration;
+ 		tasksByTaskId.clear();
+ 		metadataByTaskId.clear();
+ 		taskIdsByFileHandle.clear();
+@@ -84,14 +91,14 @@ export function createTasksStore(
+ 				continue;
+ 			}
+ 
+-			processFile(fileHandle);
++			processFile(fileHandle, generation);
+ 		}
+ 	}
+ 
+ 	registerEvent(
+ 		vault.on("modify", (fileHandle) => {
+ 			if (fileHandle instanceof TFile && shouldHandle(fileHandle)) {
+-				processFile(fileHandle);
++				processFile(fileHandle, currentGeneration);
+ 			}
+ 		})
+ 	);
+@@ -99,7 +106,7 @@ export function createTasksStore(
+ 	registerEvent(
+ 		vault.on("create", (fileHandle) => {
+ 			if (fileHandle instanceof TFile && shouldHandle(fileHandle)) {
+-				processFile(fileHandle);
++				processFile(fileHandle, currentGeneration);
+ 			}
+ 		})
+ 	);
+diff --git a/src/ui/text_view.ts b/src/ui/text_view.ts
+index 9ad9b65..1417961 100644
+--- a/src/ui/text_view.ts
++++ b/src/ui/text_view.ts
+@@ -130,7 +130,8 @@ export class KanbanView extends TextFileView {
+ 
+ 		return `---
+ ${Object.entries(parsed.attributes)
+-	.map(([key, value]) => `${key}: '${value}'`)
++	// YAML single-quoted strings require literal single quotes to be doubled ('')
++	.map(([key, value]) => `${key}: '${String(value).replace(/'/g, "''")}'`)
+ 	.join("\n")}
+ ---
+ ${parsed.body}
